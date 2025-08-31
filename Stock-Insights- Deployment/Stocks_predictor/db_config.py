@@ -1,7 +1,9 @@
+import streamlit as st
+
 from pymongo import MongoClient
 
-MONGO_URL = "mongodb+srv://JayKeluskar:JayK@123!@cluster0.qazxav1.mongodb.net/"
-MONGO_DB = "stocks_db"
+MONGO_URL = st.secrets["MONGO_URL"]
+MONGO_DB = st.secrets["MONGO_DB"]
 
 def create_connection():
     client = MongoClient(MONGO_URL)
