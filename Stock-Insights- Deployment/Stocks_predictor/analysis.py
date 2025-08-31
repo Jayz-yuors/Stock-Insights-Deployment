@@ -25,14 +25,13 @@ def fetch_prices(ticker_symbol, start_date=None, end_date=None):
     if not df.empty:
         df['trade_date'] = pd.to_datetime(df['trade_date'])
     return df if not df.empty else None
-    
+
 def fetch_current_price(ticker_symbol):
     db = create_connection()
     collection = db['stock_prices']
     cursor = collection.find({'ticker_symbol': ticker_symbol}).sort('trade_date', -1).limit(1)
     docs = list(cursor)
     return docs[0] if docs else None
-
 
 def fetch_company_info(ticker_symbol):
     db = create_connection()
@@ -41,12 +40,11 @@ def fetch_company_info(ticker_symbol):
     return doc if doc else None
 
 def get_close_price_column(df):
-    # Try common variants of close price column
-    candidates = ['close_price', 'Close', 'close']
+    candidates = ['close_price', 'Close', 'close', 'Adj Close', 'adj_close']
     for col in candidates:
         if col in df.columns:
             return col
-    raise KeyError(f"None of the close price columns {candidates} found in DataFrame columns: {list(df.columns)}")
+    raise KeyError(f"None of the close price columns found in DataFrame columns: {list(df.columns)}")
 
 def compute_sma(df, window=20):
     close_col = get_close_price_column(df)
