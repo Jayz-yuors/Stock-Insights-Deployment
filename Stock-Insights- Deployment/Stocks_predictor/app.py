@@ -184,6 +184,11 @@ with tab4:
             end_date=end_date if end_date else dynamic_end_date
         )
         if not merged.empty:
+            # Convert all columns to numeric, coercing errors to NaN
+            merged = merged.apply(pd.to_numeric, errors='coerce')
+            # Drop any rows containing NaN values after conversion
+            merged = merged.dropna()
+    
             st.line_chart(merged)
             corr = correlation_analysis(selected_companies)
             st.write("Correlation Matrix of Selected Companies:")
@@ -259,4 +264,5 @@ Developed By &nbsp;&nbsp : &nbsp;&nbsp <b><a href="https://www.linkedin.com/in/j
 """, unsafe_allow_html=True)
 
 st.sidebar.info("Made with ❤️ using Streamlit, AlphaVantage, and yfinance APIs.")
+
 
