@@ -33,16 +33,17 @@ def fetch_company_info(ticker_symbol):
     return doc if doc else None
 
 def get_close_price_column(df):
-    for col in ['close_price', 'Close', 'close']:
+    # Try common variants of close price column
+    candidates = ['close_price', 'Close', 'close']
+    for col in candidates:
         if col in df.columns:
             return col
-    raise KeyError(f"None of the close price columns found in DataFrame columns: {list(df.columns)}")
+    raise KeyError(f"None of the close price columns {candidates} found in DataFrame columns: {list(df.columns)}")
 
 def compute_sma(df, window=20):
     close_col = get_close_price_column(df)
     df['SMA'] = df[close_col].rolling(window=window).mean()
     return df
-
 
 def compute_ema(df, window=20):
     close_col = get_close_price_column(df)
@@ -69,7 +70,7 @@ def correlation_analysis(ticker_symbols):
         if df is None or df.empty:
             continue
         company_info = fetch_company_info(ticker)
-        name = company_info['company_name'] if company_info and 'company_name' in company_info else ticker
+        name = company_info.get('company_name', ticker)
         company_names.append(name)
         close_col = get_close_price_column(df)
         df = df.rename(columns={close_col: name})
@@ -89,7 +90,7 @@ def compare_companies(ticker_symbols, start_date=None, end_date=None):
         if df is None or df.empty:
             continue
         company_info = fetch_company_info(ticker)
-        name = company_info['company_name'] if company_info and 'company_name' in company_info else ticker
+        name = company_info.get('company_name', ticker)
         close_col = get_close_price_column(df)
         df = df.rename(columns={close_col: name})
         dfs.append(df.set_index('trade_date')[name])
@@ -98,15 +99,13 @@ def compare_companies(ticker_symbols, start_date=None, end_date=None):
     merged = pd.concat(dfs, axis=1, join='inner')
     return merged
 
-# --- VISUALS ---
-
 def plot_prices(df, company_name):
     close_col = get_close_price_column(df)
     plt.figure(figsize=(12, 5))
     plt.plot(df['trade_date'], df[close_col], label='Close Price')
-    if 'SMA' in df:
+    if 'SMA' in df.columns:
         plt.plot(df['trade_date'], df['SMA'], label='SMA')
-    if 'EMA' in df:
+    if 'EMA' in df.columns:
         plt.plot(df['trade_date'], df['EMA'], label='EMA')
     plt.title(f"{company_name} Stock Price")
     plt.xlabel("Date")
@@ -125,16 +124,12 @@ def plot_correlation(corr_matrix):
     plt.tight_layout()
     plt.show()
 
-# --- DATA EXPORT ---
-
 def export_data(df, filename):
     df.to_csv(filename, index=False)
     print(f"Data exported to {filename}")
 
-# --- Best Time to Invest ---
-
 def best_time_to_invest(df):
     close_col = get_close_price_column(df)
-    if 'SMA' not in df:
+    if 'SMA' not in df.columns:
         df = compute_sma(df)
     return df[df[close_col] > df['SMA']]['trade_date']
