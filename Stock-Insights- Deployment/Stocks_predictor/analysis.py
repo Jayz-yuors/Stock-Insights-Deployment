@@ -5,14 +5,17 @@ def fetch_prices(ticker_symbol, start_date='2015-01-01', end_date=None):
     db = create_connection()
     collection = db['stock_prices']
     query = {'ticker_symbol': ticker_symbol}
+    
     if start_date and end_date:
         query['trade_date'] = {'$gte': start_date, '$lte': end_date}
     elif start_date:
         query['trade_date'] = {'$gte': start_date}
     elif end_date:
         query['trade_date'] = {'$lte': end_date}
+    
     cursor = collection.find(query).sort('trade_date', 1)
     df = pd.DataFrame(list(cursor))
+    
     if not df.empty:
         df['trade_date'] = pd.to_datetime(df['trade_date'])
     return df if not df.empty else None
@@ -31,6 +34,7 @@ def fetch_company_info(ticker_symbol):
     return doc if doc else None
 
 # --- ANALYTICS ---
+
 def compute_sma(df, window=20):
     df['SMA'] = df['close_price'].rolling(window=window).mean()
     return df
@@ -81,3 +85,44 @@ def compare_companies(ticker_symbols, start_date=None, end_date=None):
         return pd.DataFrame()
     merged = pd.concat(dfs, axis=1, join='inner')
     return merged
+
+# --- VISUALS ---
+
+import matplotlib.pyplot as plt
+
+def plot_prices(df, company_name):
+    plt.figure(figsize=(12, 5))
+    plt.plot(df['trade_date'], df['close_price'], label='Close Price')
+    if 'SMA' in df:
+        plt.plot(df['trade_date'], df['SMA'], label='SMA')
+    if 'EMA' in df:
+        plt.plot(df['trade_date'], df['EMA'], label='EMA')
+    plt.title(f"{company_name} Stock Price")
+    plt.xlabel("Date")
+    plt.ylabel("Price")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+def plot_correlation(corr_matrix):
+    plt.figure(figsize=(8, 6))
+    plt.imshow(corr_matrix, cmap='coolwarm', vmin=-1, vmax=1)
+    plt.colorbar(label='Correlation')
+    plt.xticks(range(len(corr_matrix.columns)), corr_matrix.columns, rotation=45)
+    plt.yticks(range(len(corr_matrix.index)), corr_matrix.index)
+    plt.title("Stock Price Correlation Matrix")
+    plt.tight_layout()
+    plt.show()
+
+# --- DATA EXPORT ---
+
+def export_data(df, filename):
+    df.to_csv(filename, index=False)
+    print(f"Data exported to {filename}")
+
+# Pseudo ML: Best Time to Invest (existing logic)
+
+def best_time_to_invest(df):
+    if 'SMA' not in df:
+        df = compute_sma(df)
+    return df[df['close_price'] > df['SMA']]['trade_date']
