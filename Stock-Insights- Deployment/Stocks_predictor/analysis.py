@@ -40,11 +40,10 @@ def fetch_company_info(ticker_symbol):
     return doc if doc else None
 
 def get_close_price_column(df):
-    candidates = ['close_price', 'Close', 'close', 'Adj Close', 'adj_close']
-    for col in candidates:
-        if col in df.columns:
+    for col in df.columns:
+        if 'close' in col.lower():
             return col
-    raise KeyError(f"None of the close price columns found in DataFrame columns: {list(df.columns)}")
+    raise KeyError(f"No close price column found. Columns present: {list(df.columns)}")
 
 def compute_sma(df, window=20):
     close_col = get_close_price_column(df)
