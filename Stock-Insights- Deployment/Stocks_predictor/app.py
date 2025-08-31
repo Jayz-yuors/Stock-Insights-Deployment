@@ -4,7 +4,7 @@ from analysis import (
     compute_sma, compute_ema, detect_abrupt_changes,
     volatility_and_risk, correlation_analysis,
     compare_companies, plot_correlation,
-    best_time_to_invest, plot_prices
+    best_time_to_invest, plot_prices, get_close_price_column
 )
 from data_fetcher import get_company_list, run_fetching
 from datetime import datetime
@@ -54,9 +54,8 @@ end_date = st.sidebar.date_input("End date", value=None, max_value=datetime.toda
 
 dynamic_end_date = datetime.today().date()
 
-if start_date and end_date:
-    if start_date >= end_date:
-        st.sidebar.error("Start date must be *less* than end date.")
+if start_date and end_date and start_date >= end_date:
+    st.sidebar.error("Start date must be *less* than end date.")
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 Price & Trends",
@@ -72,18 +71,23 @@ with tab1:
         info = fetch_company_info(ticker)
         company_name_display = info.get('company_name') if info else ticker
         st.markdown(f"### {company_name_display} ({ticker})")
-        df = fetch_prices(ticker, start_date=start_date if start_date else None, end_date=end_date if end_date else dynamic_end_date)
+        df = fetch_prices(ticker,
+                          start_date=start_date if start_date else None,
+                          end_date=end_date if end_date else dynamic_end_date)
         if df is not None and not df.empty:
+            st.write("Data columns for debugging:", df.columns.tolist())  # Debug print to check columns
             df = compute_sma(df)
             df = compute_ema(df)
             current = fetch_current_price(ticker)
-            st.metric(label="Current Price", value=current['close_price'] if current is not None else "N/A")
-            st.line_chart(df.set_index('trade_date')[['close_price', 'SMA', 'EMA']])
+            close_col = get_close_price_column(df)
+            st.metric(label="Current Price", value=current[close_col] if current and close_col in current else "N/A")
+            st.line_chart(df.set_index('trade_date')[[close_col, 'SMA', 'EMA']])
             with st.expander("Show Full Historical Data Table (Expandable)"):
                 st.dataframe(df, use_container_width=True)
             st.markdown("---")
         else:
             st.warning("No price data for selected company.")
+
 
 with tab2:
     st.subheader("Abrupt Price Changes Detection")
@@ -195,3 +199,4 @@ Developed By &nbsp;&nbsp : &nbsp;&nbsp <b><a href="https://www.linkedin.com/in/j
 """, unsafe_allow_html=True)
 
 st.sidebar.info("Made with ❤️ using Streamlit, AlphaVantage, and yfinance APIs.")
+
