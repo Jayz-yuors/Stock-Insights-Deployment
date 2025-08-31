@@ -1,11 +1,18 @@
 import pandas as pd
 from db_config import create_connection
 
-def fetch_prices(ticker_symbol, start_date='2015-01-01', end_date=None):
+def fetch_prices(ticker_symbol, start_date=None, end_date=None):
     db = create_connection()
     collection = db['stock_prices']
     query = {'ticker_symbol': ticker_symbol}
     
+    # Convert dates to ISO format strings if they are datetime/date objects
+    if start_date and hasattr(start_date, 'isoformat'):
+        start_date = start_date.isoformat()
+    if end_date and hasattr(end_date, 'isoformat'):
+        end_date = end_date.isoformat()
+    
+    # Build trade_date filter only if dates provided
     if start_date and end_date:
         query['trade_date'] = {'$gte': start_date, '$lte': end_date}
     elif start_date:
@@ -19,6 +26,7 @@ def fetch_prices(ticker_symbol, start_date='2015-01-01', end_date=None):
     if not df.empty:
         df['trade_date'] = pd.to_datetime(df['trade_date'])
     return df if not df.empty else None
+
 
 def fetch_current_price(ticker_symbol):
     db = create_connection()
