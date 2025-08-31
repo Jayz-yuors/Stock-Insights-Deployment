@@ -33,11 +33,10 @@ def fetch_company_info(ticker_symbol):
     return doc if doc else None
 
 def get_close_price_column(df):
-    # Dynamic detection of close price column
     for col in ['close_price', 'Close', 'close']:
         if col in df.columns:
             return col
-    raise KeyError(f"None of the close price columns found in DataFrame columns: {list(df.columns)}")
+    raise KeyError(f"None of the expected close price columns {['close_price', 'Close', 'close']} found in DataFrame columns: {list(df.columns)}")
 
 # --- ANALYTICS ---
 
