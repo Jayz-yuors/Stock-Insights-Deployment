@@ -49,13 +49,7 @@ def get_close_price_column(df):
 # --- ANALYTICS ---
 
 def compute_sma(df, window=20):
-    close_col = None
-    for col in ['close_price', 'Close', 'close']:
-        if col in df.columns:
-            close_col = col
-            break
-    if close_col is None:
-        raise KeyError("No close price column found")
+    close_col = get_close_price_column(df)
     df['SMA'] = df[close_col].rolling(window=window).mean()
     return df
 
