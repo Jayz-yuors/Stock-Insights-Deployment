@@ -1,18 +1,17 @@
 import pandas as pd
 from db_config import create_connection
+import matplotlib.pyplot as plt
 
 def fetch_prices(ticker_symbol, start_date=None, end_date=None):
     db = create_connection()
     collection = db['stock_prices']
     query = {'ticker_symbol': ticker_symbol}
     
-    # Convert dates to ISO format strings if they are datetime/date objects
     if start_date and hasattr(start_date, 'isoformat'):
         start_date = start_date.isoformat()
     if end_date and hasattr(end_date, 'isoformat'):
         end_date = end_date.isoformat()
     
-    # Build trade_date filter only if dates provided
     if start_date and end_date:
         query['trade_date'] = {'$gte': start_date, '$lte': end_date}
     elif start_date:
@@ -27,7 +26,6 @@ def fetch_prices(ticker_symbol, start_date=None, end_date=None):
         df['trade_date'] = pd.to_datetime(df['trade_date'])
     return df if not df.empty else None
 
-
 def fetch_current_price(ticker_symbol):
     db = create_connection()
     collection = db['stock_prices']
@@ -41,25 +39,36 @@ def fetch_company_info(ticker_symbol):
     doc = collection.find_one({'ticker_symbol': ticker_symbol})
     return doc if doc else None
 
+def get_close_price_column(df):
+    candidates = ['close_price', 'Close', 'close']
+    for col in candidates:
+        if col in df.columns:
+            return col
+    raise KeyError(f"None of the expected close price columns {candidates} found in DataFrame columns: {list(df.columns)}")
+
 # --- ANALYTICS ---
 
 def compute_sma(df, window=20):
-    df['SMA'] = df['close_price'].rolling(window=window).mean()
+    close_col = get_close_price_column(df)
+    df['SMA'] = df[close_col].rolling(window=window).mean()
     return df
 
 def compute_ema(df, window=20):
-    df['EMA'] = df['close_price'].ewm(span=window, adjust=False).mean()
+    close_col = get_close_price_column(df)
+    df['EMA'] = df[close_col].ewm(span=window, adjust=False).mean()
     return df
 
 def detect_abrupt_changes(df, threshold=0.05):
-    df['pct_change'] = df['close_price'].pct_change()
+    close_col = get_close_price_column(df)
+    df['pct_change'] = df[close_col].pct_change()
     abrupt = df[abs(df['pct_change']) > threshold].copy()
-    return abrupt[['trade_date', 'close_price', 'pct_change']]
+    return abrupt[['trade_date', close_col, 'pct_change']]
 
 def volatility_and_risk(df, window=20):
-    df['volatility'] = df['close_price'].rolling(window=window).std()
-    df['risk'] = df['volatility'] / df['close_price']
-    return df[['trade_date', 'close_price', 'volatility', 'risk']]
+    close_col = get_close_price_column(df)
+    df['volatility'] = df[close_col].rolling(window=window).std()
+    df['risk'] = df['volatility'] / df[close_col]
+    return df[['trade_date', close_col, 'volatility', 'risk']]
 
 def correlation_analysis(ticker_symbols):
     dfs = []
@@ -68,9 +77,11 @@ def correlation_analysis(ticker_symbols):
         df = fetch_prices(ticker)
         if df is None or df.empty:
             continue
-        name = fetch_company_info(ticker)['company_name']
+        company_info = fetch_company_info(ticker)
+        name = company_info['company_name'] if company_info and 'company_name' in company_info else ticker
         company_names.append(name)
-        df = df.rename(columns={'close_price': name})
+        close_col = get_close_price_column(df)
+        df = df.rename(columns={close_col: name})
         dfs.append(df.set_index('trade_date')[name])
     if not dfs:
         return pd.DataFrame()
@@ -86,8 +97,10 @@ def compare_companies(ticker_symbols, start_date=None, end_date=None):
         df = fetch_prices(ticker, start_date, end_date)
         if df is None or df.empty:
             continue
-        name = fetch_company_info(ticker)['company_name']
-        df = df.rename(columns={'close_price': name})
+        company_info = fetch_company_info(ticker)
+        name = company_info['company_name'] if company_info and 'company_name' in company_info else ticker
+        close_col = get_close_price_column(df)
+        df = df.rename(columns={close_col: name})
         dfs.append(df.set_index('trade_date')[name])
     if not dfs:
         return pd.DataFrame()
@@ -96,11 +109,10 @@ def compare_companies(ticker_symbols, start_date=None, end_date=None):
 
 # --- VISUALS ---
 
-import matplotlib.pyplot as plt
-
 def plot_prices(df, company_name):
+    close_col = get_close_price_column(df)
     plt.figure(figsize=(12, 5))
-    plt.plot(df['trade_date'], df['close_price'], label='Close Price')
+    plt.plot(df['trade_date'], df[close_col], label='Close Price')
     if 'SMA' in df:
         plt.plot(df['trade_date'], df['SMA'], label='SMA')
     if 'EMA' in df:
@@ -131,6 +143,8 @@ def export_data(df, filename):
 # Pseudo ML: Best Time to Invest (existing logic)
 
 def best_time_to_invest(df):
+    close_col = get_close_price_column(df)
     if 'SMA' not in df:
         df = compute_sma(df)
-    return df[df['close_price'] > df['SMA']]['trade_date']
+    # Return dates where close price is above SMA
+    return df[df[close_col] > df['SMA']]['trade_date']
