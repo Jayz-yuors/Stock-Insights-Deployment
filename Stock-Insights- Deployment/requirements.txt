@@ -1,9 +1,7 @@
 streamlit
 pandas
-numpy
-matplotlib
-yfinance
+pymongo
 alpha_vantage
-requests
-psycopg2-binary
-
+yfinance
+matplotlib
+plotly
