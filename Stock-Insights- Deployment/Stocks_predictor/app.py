@@ -15,7 +15,7 @@ st.set_page_config(page_title="Stocks Predictor Dashboard", layout="wide")
 def update_stock_data():
     run_fetching()
 
-# Optionally uncomment to update stock data manually
+# Optional: call update_stock_data() manually if you want to avoid data fetching on every app launch
 # update_stock_data()
 
 # Theme selection
@@ -41,12 +41,10 @@ st.title("📈 Stocks Insights")
 st.markdown("Explore and analyze Nifty50 stocks with analytics & interactive charts.")
 
 company_tickers = get_company_list()
-company_dict = {ticker: ticker for ticker in company_tickers}
-company_names = list(company_dict.keys())
 
 st.sidebar.header("Choose One or More Companies")
-selected_companies = st.sidebar.multiselect("Select Company Tickers", company_names, default=company_names[:1])
-selected_tickers = [company_dict[t] for t in selected_companies]
+selected_companies = st.sidebar.multiselect("Select Company Tickers", company_tickers, default=company_tickers[:1])
+selected_tickers = selected_companies  # Alias for convenience
 
 st.sidebar.header("Date Range (Optional)")
 start_date = st.sidebar.date_input("Start date", value=None)
@@ -55,7 +53,7 @@ end_date = st.sidebar.date_input("End date", value=None, max_value=datetime.toda
 dynamic_end_date = datetime.today().date()
 
 if start_date and end_date and start_date >= end_date:
-    st.sidebar.error("Start date must be *less* than end date.")
+    st.sidebar.error("Start date must be less than end date.")
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 Price & Trends",
@@ -67,7 +65,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 
 with tab1:
     st.subheader("View Full Historical Price Data & Chart")
-    for ticker in selected_companies:
+    for ticker in selected_tickers:
         info = fetch_company_info(ticker)
         company_name_display = info.get('company_name') if info else ticker
         st.markdown(f"### {company_name_display} ({ticker})")
@@ -75,12 +73,15 @@ with tab1:
                           start_date=start_date if start_date else None,
                           end_date=end_date if end_date else dynamic_end_date)
         if df is not None and not df.empty:
-            st.write("Data columns for debugging:", df.columns.tolist()) # Debug check
+            st.write("Data columns for debugging:", df.columns.tolist())  # Debug output
             df = compute_sma(df)
             df = compute_ema(df)
             current = fetch_current_price(ticker)
-            close_col = get_close_price_column(df)
-            current_price = current[close_col] if current and close_col in current else "N/A"
+            try:
+                close_col = get_close_price_column(df)
+                current_price = current.get(close_col, "N/A") if current else "N/A"
+            except KeyError:
+                current_price = "N/A"
             st.metric(label="Current Price", value=current_price)
             st.line_chart(df.set_index('trade_date')[[close_col, 'SMA', 'EMA']])
             with st.expander("Show Full Historical Data Table (Expandable)"):
@@ -92,14 +93,16 @@ with tab1:
 with tab2:
     st.subheader("Abrupt Price Changes Detection")
     threshold = st.slider("Set threshold for abrupt change (%)", 1, 20, value=5) / 100.0
-    for ticker in selected_companies:
+    for ticker in selected_tickers:
         info = fetch_company_info(ticker)
-        if not info:
+        if info is None:
             st.warning(f"No info found for ticker {ticker}")
             continue
         company_name_display = info.get('company_name', ticker)
         st.markdown(f"### {company_name_display} ({ticker})")
-        df = fetch_prices(ticker, start_date=start_date if start_date else None, end_date=end_date if end_date else dynamic_end_date)
+        df = fetch_prices(ticker,
+                          start_date=start_date if start_date else None,
+                          end_date=end_date if end_date else dynamic_end_date)
         if df is not None and not df.empty:
             abrupt = detect_abrupt_changes(df, threshold=threshold)
             st.dataframe(abrupt)
@@ -110,14 +113,16 @@ with tab2:
 with tab3:
     st.subheader("ML & Volatility / Risk Analysis")
     window = st.slider("SMA/Volatility Window (days)", 5, 50, value=20)
-    for ticker in selected_companies:
+    for ticker in selected_tickers:
         info = fetch_company_info(ticker)
-        if not info:
+        if info is None:
             st.warning(f"No info found for ticker {ticker}")
             continue
         company_name_display = info.get('company_name', ticker)
         st.markdown(f"### {company_name_display} ({ticker})")
-        df = fetch_prices(ticker, start_date=start_date if start_date else None, end_date=end_date if end_date else dynamic_end_date)
+        df = fetch_prices(ticker,
+                          start_date=start_date if start_date else None,
+                          end_date=end_date if end_date else dynamic_end_date)
         if df is not None and not df.empty:
             df = compute_sma(df, window=window)
             vr_df = volatility_and_risk(df, window=window)
@@ -129,7 +134,9 @@ with tab3:
 with tab4:
     st.subheader("Compare Multiple Companies & Correlation Analysis")
     if len(selected_tickers) > 1:
-        merged = compare_companies(selected_tickers, start_date if start_date else None, end_date if end_date else dynamic_end_date)
+        merged = compare_companies(selected_tickers,
+                                   start_date if start_date else None,
+                                   end_date if end_date else dynamic_end_date)
         if not merged.empty:
             st.line_chart(merged)
             corr = correlation_analysis(selected_tickers)
@@ -143,14 +150,16 @@ with tab4:
 
 with tab5:
     st.subheader("Export Data & Company Info")
-    for ticker in selected_companies:
+    for ticker in selected_tickers:
         info = fetch_company_info(ticker)
-        if not info:
+        if info is None:
             st.warning(f"No info found for ticker {ticker}")
             continue
         st.markdown(f"### {info.get('company_name', ticker)} ({ticker}) Info")
         st.json(info)
-        df = fetch_prices(ticker, start_date if start_date else None, end_date if end_date else dynamic_end_date)
+        df = fetch_prices(ticker,
+                          start_date if start_date else None,
+                          end_date if end_date else dynamic_end_date)
         if df is not None and not df.empty:
             filename = f"{ticker}_price_data.csv"
             st.download_button("Export Data as CSV", data=df.to_csv(index=False), file_name=filename)
