@@ -139,6 +139,8 @@ with tab2:
             end_date=end_date if end_date else dynamic_end_date
         )
         if df is not None and not df.empty:
+            close_col = get_close_price_column(df)
+            df[close_col] = pd.to_numeric(df[close_col], errors='coerce').fillna(method='ffill')
             abrupt = detect_abrupt_changes(df, threshold=threshold)
             st.dataframe(abrupt)
         else:
@@ -264,5 +266,3 @@ Developed By &nbsp;&nbsp : &nbsp;&nbsp <b><a href="https://www.linkedin.com/in/j
 """, unsafe_allow_html=True)
 
 st.sidebar.info("Made with ❤️ using Streamlit, AlphaVantage, and yfinance APIs.")
-
-
