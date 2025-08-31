@@ -77,15 +77,21 @@ with tab1:
             df = compute_sma(df)
             df = compute_ema(df)
             current = fetch_current_price(ticker)
-            try :
+            try:
                 close_col = get_close_price_column(df)
-                if current and close_col in current:
-                    current_price = float(current[close_col])
+                raw_price = current.get(close_col, None) if current else None
+                # If raw_price is a dict, extract the first value
+                if isinstance(raw_price, dict):
+                    current_price = list(raw_price.values())[0]
                 else:
-                    current_price = "N/A"
-            except Exception :
+                    current_price = raw_price
+                # Convert to float if possible
+                current_price = float(current_price) if current_price is not None else "N/A"
+            except Exception:
                 current_price = "N/A"
-            st.metric(label = "Current Price",value = current_price)
+            
+            st.metric(label="Current Price", value=current_price)
+
             st.line_chart(df.set_index('trade_date')[[close_col, 'SMA', 'EMA']])
             with st.expander("Show Full Historical Data Table (Expandable)"):
                 st.dataframe(df, use_container_width=True)
@@ -214,4 +220,5 @@ Developed By &nbsp;&nbsp : &nbsp;&nbsp <b><a href="https://www.linkedin.com/in/j
 """, unsafe_allow_html=True)
 
 st.sidebar.info("Made with ❤️ using Streamlit, AlphaVantage, and yfinance APIs.")
+
 
