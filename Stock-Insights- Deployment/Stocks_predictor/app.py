@@ -1,7 +1,8 @@
 import streamlit as st
+from analysis import compute_sma
 from analysis import (
     fetch_prices, fetch_current_price, fetch_company_info,
-    compute_sma, compute_ema, detect_abrupt_changes,
+    compute_ema, detect_abrupt_changes,
     volatility_and_risk, correlation_analysis,
     compare_companies, plot_correlation,
     best_time_to_invest, plot_prices, get_close_price_column
@@ -199,4 +200,5 @@ Developed By &nbsp;&nbsp : &nbsp;&nbsp <b><a href="https://www.linkedin.com/in/j
 """, unsafe_allow_html=True)
 
 st.sidebar.info("Made with ❤️ using Streamlit, AlphaVantage, and yfinance APIs.")
+
 
