@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 from analysis import (
     fetch_prices, fetch_current_price, fetch_company_info,
     compute_sma, compute_ema, detect_abrupt_changes,
@@ -258,3 +259,4 @@ Developed By &nbsp;&nbsp : &nbsp;&nbsp <b><a href="https://www.linkedin.com/in/j
 """, unsafe_allow_html=True)
 
 st.sidebar.info("Made with ❤️ using Streamlit, AlphaVantage, and yfinance APIs.")
+
