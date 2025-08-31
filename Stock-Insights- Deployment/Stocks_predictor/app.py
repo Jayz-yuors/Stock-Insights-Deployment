@@ -18,7 +18,6 @@ def update_stock_data():
 # Optional: call update_stock_data() manually if you want to avoid data fetching on every app launch
 # update_stock_data()
 
-# Theme selection
 theme = st.sidebar.selectbox("Select Theme", options=["Light", "Dark"])
 if theme == "Dark":
     st.markdown("""
@@ -44,7 +43,7 @@ company_tickers = get_company_list()
 
 st.sidebar.header("Choose One or More Companies")
 selected_companies = st.sidebar.multiselect("Select Company Tickers", company_tickers, default=company_tickers[:1])
-selected_tickers = selected_companies  # Alias for convenience
+selected_tickers = selected_companies  # alias for clarity
 
 st.sidebar.header("Date Range (Optional)")
 start_date = st.sidebar.date_input("Start date", value=None)
@@ -73,25 +72,23 @@ with tab1:
                           start_date=start_date if start_date else None,
                           end_date=end_date if end_date else dynamic_end_date)
         if df is not None and not df.empty:
-            st.write("Data columns for debugging:", df.columns.tolist())  # Debug output
+            st.write("Data columns for debugging:", df.columns.tolist())
             df = compute_sma(df)
             df = compute_ema(df)
             current = fetch_current_price(ticker)
+
             try:
                 close_col = get_close_price_column(df)
-                raw_price = current.get(close_col, None) if current else None
-                # If raw_price is a dict, extract the first value
+                raw_price = current.get(close_col) if current else None
+
                 if isinstance(raw_price, dict):
-                    current_price = list(raw_price.values())[0]
+                    current_price = float(next(iter(raw_price.values())))
                 else:
-                    current_price = raw_price
-                # Convert to float if possible
-                current_price = float(current_price) if current_price is not None else "N/A"
+                    current_price = float(raw_price) if raw_price is not None else "N/A"
             except Exception:
                 current_price = "N/A"
-            
-            st.metric(label="Current Price", value=current_price)
 
+            st.metric(label="Current Price", value=current_price)
             st.line_chart(df.set_index('trade_date')[[close_col, 'SMA', 'EMA']])
             with st.expander("Show Full Historical Data Table (Expandable)"):
                 st.dataframe(df, use_container_width=True)
@@ -220,5 +217,3 @@ Developed By &nbsp;&nbsp : &nbsp;&nbsp <b><a href="https://www.linkedin.com/in/j
 """, unsafe_allow_html=True)
 
 st.sidebar.info("Made with ❤️ using Streamlit, AlphaVantage, and yfinance APIs.")
-
-
