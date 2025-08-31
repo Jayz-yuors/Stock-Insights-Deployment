@@ -15,7 +15,7 @@ st.set_page_config(page_title="Stocks Predictor Dashboard", layout="wide")
 def update_stock_data():
     run_fetching()
 
-# Optional: call update_stock_data() manually if you want to avoid data fetching on every app launch
+# Uncomment below line to manually update stock data on app start if needed
 # update_stock_data()
 
 # Theme selection
@@ -44,7 +44,6 @@ company_tickers = get_company_list()
 
 st.sidebar.header("Choose One or More Companies")
 selected_companies = st.sidebar.multiselect("Select Company Tickers", company_tickers, default=company_tickers[:1])
-selected_tickers = selected_companies  # alias for clarity
 
 st.sidebar.header("Date Range (Optional)")
 start_date = st.sidebar.date_input("Start date", value=None)
@@ -56,7 +55,7 @@ if start_date and end_date and start_date >= end_date:
     st.sidebar.error("Start date must be less than end date.")
 
 def extract_numeric_value(val):
-    # Recursively extract numeric from nested dicts (e.g., {'NS': 1357.19})
+    # Recursively extract numeric value from nested dicts (e.g. {'NS': 1357.199951171875})
     while isinstance(val, dict):
         if not val:
             return None
@@ -80,21 +79,27 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 
 with tab1:
     st.subheader("View Full Historical Price Data & Chart")
-    for ticker in selected_tickers:
+    for ticker in selected_companies:
         info = fetch_company_info(ticker)
         company_name_display = info.get('company_name') if info else ticker
         st.markdown(f"### {company_name_display} ({ticker})")
-        df = fetch_prices(ticker,
-                          start_date=start_date if start_date else None,
-                          end_date=end_date if end_date else dynamic_end_date)
+        df = fetch_prices(
+            ticker,
+            start_date=start_date if start_date else None,
+            end_date=end_date if end_date else dynamic_end_date
+        )
+
         if df is not None and not df.empty:
             st.write("Data columns for debugging:", df.columns.tolist())
+            close_col = get_close_price_column(df)
+            # Ensure numeric and filled NaNs for rolling calculations
+            df[close_col] = pd.to_numeric(df[close_col], errors='coerce').fillna(method='ffill')
+
             df = compute_sma(df)
             df = compute_ema(df)
-            current = fetch_current_price(ticker)
 
+            current = fetch_current_price(ticker)
             try:
-                close_col = get_close_price_column(df)
                 raw_price = current.get(close_col) if current else None
                 current_price = extract_numeric_value(raw_price)
                 if current_price is None:
@@ -103,9 +108,16 @@ with tab1:
                 current_price = "N/A"
 
             st.metric(label="Current Price", value=current_price)
-            st.line_chart(df.set_index('trade_date')[[close_col, 'SMA', 'EMA']])
+
+            df.set_index('trade_date', inplace=True)
+            chart_data = df[[close_col, 'SMA', 'EMA']].dropna()
+            if not chart_data.empty:
+                st.line_chart(chart_data)
+            else:
+                st.warning("Not enough data to render chart.")
+            
             with st.expander("Show Full Historical Data Table (Expandable)"):
-                st.dataframe(df, use_container_width=True)
+                st.dataframe(df.reset_index(), use_container_width=True)
             st.markdown("---")
         else:
             st.warning("No price data for selected company.")
@@ -113,16 +125,18 @@ with tab1:
 with tab2:
     st.subheader("Abrupt Price Changes Detection")
     threshold = st.slider("Set threshold for abrupt change (%)", 1, 20, value=5) / 100.0
-    for ticker in selected_tickers:
+    for ticker in selected_companies:
         info = fetch_company_info(ticker)
-        if info is None:
+        if not info:
             st.warning(f"No info found for ticker {ticker}")
             continue
         company_name_display = info.get('company_name', ticker)
         st.markdown(f"### {company_name_display} ({ticker})")
-        df = fetch_prices(ticker,
-                          start_date=start_date if start_date else None,
-                          end_date=end_date if end_date else dynamic_end_date)
+        df = fetch_prices(
+            ticker,
+            start_date=start_date if start_date else None,
+            end_date=end_date if end_date else dynamic_end_date
+        )
         if df is not None and not df.empty:
             abrupt = detect_abrupt_changes(df, threshold=threshold)
             st.dataframe(abrupt)
@@ -133,33 +147,44 @@ with tab2:
 with tab3:
     st.subheader("ML & Volatility / Risk Analysis")
     window = st.slider("SMA/Volatility Window (days)", 5, 50, value=20)
-    for ticker in selected_tickers:
+    for ticker in selected_companies:
         info = fetch_company_info(ticker)
-        if info is None:
+        if not info:
             st.warning(f"No info found for ticker {ticker}")
             continue
         company_name_display = info.get('company_name', ticker)
         st.markdown(f"### {company_name_display} ({ticker})")
-        df = fetch_prices(ticker,
-                          start_date=start_date if start_date else None,
-                          end_date=end_date if end_date else dynamic_end_date)
+        df = fetch_prices(
+            ticker,
+            start_date=start_date if start_date else None,
+            end_date=end_date if end_date else dynamic_end_date
+        )
         if df is not None and not df.empty:
+            close_col = get_close_price_column(df)
+            df[close_col] = pd.to_numeric(df[close_col], errors='coerce').fillna(method='ffill')
             df = compute_sma(df, window=window)
             vr_df = volatility_and_risk(df, window=window)
-            st.line_chart(vr_df.set_index('trade_date')[['volatility', 'risk']])
+            vr_df.set_index('trade_date', inplace=True)
+            chart_data = vr_df[['volatility', 'risk']].dropna()
+            if not chart_data.empty:
+                st.line_chart(chart_data)
+            else:
+                st.warning("Not enough data to render volatility/risk chart.")
         else:
             st.warning("No price data available for volatility analysis.")
     st.markdown("---")
 
 with tab4:
     st.subheader("Compare Multiple Companies & Correlation Analysis")
-    if len(selected_tickers) > 1:
-        merged = compare_companies(selected_tickers,
-                                   start_date if start_date else None,
-                                   end_date if end_date else dynamic_end_date)
+    if len(selected_companies) > 1:
+        merged = compare_companies(
+            selected_companies,
+            start_date=start_date if start_date else None,
+            end_date=end_date if end_date else dynamic_end_date
+        )
         if not merged.empty:
             st.line_chart(merged)
-            corr = correlation_analysis(selected_tickers)
+            corr = correlation_analysis(selected_companies)
             st.write("Correlation Matrix of Selected Companies:")
             st.dataframe(corr)
             plot_correlation(corr)
@@ -170,16 +195,18 @@ with tab4:
 
 with tab5:
     st.subheader("Export Data & Company Info")
-    for ticker in selected_tickers:
+    for ticker in selected_companies:
         info = fetch_company_info(ticker)
-        if info is None:
+        if not info:
             st.warning(f"No info found for ticker {ticker}")
             continue
         st.markdown(f"### {info.get('company_name', ticker)} ({ticker}) Info")
         st.json(info)
-        df = fetch_prices(ticker,
-                          start_date if start_date else None,
-                          end_date if end_date else dynamic_end_date)
+        df = fetch_prices(
+            ticker,
+            start_date=start_date if start_date else None,
+            end_date=end_date if end_date else dynamic_end_date
+        )
         if df is not None and not df.empty:
             filename = f"{ticker}_price_data.csv"
             st.download_button("Export Data as CSV", data=df.to_csv(index=False), file_name=filename)
