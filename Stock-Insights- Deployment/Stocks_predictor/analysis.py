@@ -36,14 +36,13 @@ def get_close_price_column(df):
     for col in ['close_price', 'Close', 'close']:
         if col in df.columns:
             return col
-    raise KeyError(f"None of the expected close price columns {['close_price', 'Close', 'close']} found in DataFrame columns: {list(df.columns)}")
-
-# --- ANALYTICS ---
+    raise KeyError(f"None of the close price columns found in DataFrame columns: {list(df.columns)}")
 
 def compute_sma(df, window=20):
     close_col = get_close_price_column(df)
     df['SMA'] = df[close_col].rolling(window=window).mean()
     return df
+
 
 def compute_ema(df, window=20):
     close_col = get_close_price_column(df)
