@@ -26,13 +26,6 @@ def fetch_prices(ticker_symbol, start_date=None, end_date=None):
         df['trade_date'] = pd.to_datetime(df['trade_date'])
     return df if not df.empty else None
 
-def fetch_current_price(ticker_symbol):
-    db = create_connection()
-    collection = db['stock_prices']
-    cursor = collection.find({'ticker_symbol': ticker_symbol}).sort('trade_date', -1).limit(1)
-    docs = list(cursor)
-    return docs[0] if docs else None
-
 def fetch_company_info(ticker_symbol):
     db = create_connection()
     collection = db['companies']
@@ -40,11 +33,11 @@ def fetch_company_info(ticker_symbol):
     return doc if doc else None
 
 def get_close_price_column(df):
-    candidates = ['close_price', 'Close', 'close']
-    for col in candidates:
+    # Dynamic detection of close price column
+    for col in ['close_price', 'Close', 'close']:
         if col in df.columns:
             return col
-    raise KeyError(f"None of the expected close price columns {candidates} found in DataFrame columns: {list(df.columns)}")
+    raise KeyError(f"None of the close price columns found in DataFrame columns: {list(df.columns)}")
 
 # --- ANALYTICS ---
 
@@ -140,7 +133,7 @@ def export_data(df, filename):
     df.to_csv(filename, index=False)
     print(f"Data exported to {filename}")
 
-# Pseudo ML: Best Time to Invest 
+# --- Best Time to Invest ---
 
 def best_time_to_invest(df):
     close_col = get_close_price_column(df)
