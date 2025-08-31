@@ -140,11 +140,10 @@ def export_data(df, filename):
     df.to_csv(filename, index=False)
     print(f"Data exported to {filename}")
 
-# Pseudo ML: Best Time to Invest (existing logic)
+# Pseudo ML: Best Time to Invest 
 
 def best_time_to_invest(df):
     close_col = get_close_price_column(df)
     if 'SMA' not in df:
         df = compute_sma(df)
-    # Return dates where close price is above SMA
     return df[df[close_col] > df['SMA']]['trade_date']
