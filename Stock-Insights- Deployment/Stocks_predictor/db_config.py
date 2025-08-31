@@ -1,9 +1,8 @@
-import streamlit as st
-
 from pymongo import MongoClient
 
-MONGO_URL = st.secrets["MONGO_URL"]
-MONGO_DB = st.secrets["MONGO_DB"]
+# Hardcoded MongoDB connection string (URL-encode special characters in password)
+MONGO_URL = "mongodb+srv://JayKeluskar:JayK%40123%21@cluster0.qazxav1.mongodb.net/"
+MONGO_DB = "stocks_db"
 
 def create_connection():
     client = MongoClient(MONGO_URL)
