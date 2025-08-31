@@ -40,6 +40,7 @@ def fetch_company_info(ticker_symbol):
     return doc if doc else None
 
 def get_close_price_column(df):
+    candidates = ['close_price', 'Close', 'close', 'Adj Close', 'adj_close']
     for col in df.columns:
         if 'close' in col.lower():
             return col
@@ -47,22 +48,26 @@ def get_close_price_column(df):
 
 def compute_sma(df, window=20):
     close_col = get_close_price_column(df)
+    df[close_col] = pd.to_numeric(df[close_col], errors='coerce')
     df['SMA'] = df[close_col].rolling(window=window).mean()
     return df
 
 def compute_ema(df, window=20):
     close_col = get_close_price_column(df)
+    df[close_col] = pd.to_numeric(df[close_col], errors='coerce')
     df['EMA'] = df[close_col].ewm(span=window, adjust=False).mean()
     return df
 
 def detect_abrupt_changes(df, threshold=0.05):
     close_col = get_close_price_column(df)
+    df[close_col] = pd.to_numeric(df[close_col], errors='coerce')
     df['pct_change'] = df[close_col].pct_change()
     abrupt = df[abs(df['pct_change']) > threshold].copy()
     return abrupt[['trade_date', close_col, 'pct_change']]
 
 def volatility_and_risk(df, window=20):
     close_col = get_close_price_column(df)
+    df[close_col] = pd.to_numeric(df[close_col], errors='coerce')
     df['volatility'] = df[close_col].rolling(window=window).std()
     df['risk'] = df['volatility'] / df[close_col]
     return df[['trade_date', close_col, 'volatility', 'risk']]
