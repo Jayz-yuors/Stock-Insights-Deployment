@@ -1,0 +1,7 @@
+streamlit
+pandas
+pymongo
+alpha_vantage
+yfinance
+matplotlib
+plotly
