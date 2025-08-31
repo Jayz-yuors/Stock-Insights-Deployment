@@ -1,7 +1,7 @@
 import streamlit as st
 from analysis import (
-    fetch_prices, fetch_current_price, fetch_company_info,compute_sma,
-    compute_ema, detect_abrupt_changes,
+    fetch_prices, fetch_current_price, fetch_company_info,
+    compute_sma, compute_ema, detect_abrupt_changes,
     volatility_and_risk, correlation_analysis,
     compare_companies, plot_correlation,
     best_time_to_invest, plot_prices, get_close_price_column
@@ -15,7 +15,7 @@ st.set_page_config(page_title="Stocks Predictor Dashboard", layout="wide")
 def update_stock_data():
     run_fetching()
 
-# Optional: call update_stock_data() manually if you want to avoid data fetching on every app launch
+# Optionally uncomment to update stock data manually
 # update_stock_data()
 
 # Theme selection
@@ -37,7 +37,7 @@ else:
     }
     </style>""", unsafe_allow_html=True)
 
-st.title("📈 Stocks Insights ")
+st.title("📈 Stocks Insights")
 st.markdown("Explore and analyze Nifty50 stocks with analytics & interactive charts.")
 
 company_tickers = get_company_list()
@@ -46,7 +46,7 @@ company_names = list(company_dict.keys())
 
 st.sidebar.header("Choose One or More Companies")
 selected_companies = st.sidebar.multiselect("Select Company Tickers", company_names, default=company_names[:1])
-selected_tickers = [company_dict[ticker] for ticker in selected_companies]
+selected_tickers = [company_dict[t] for t in selected_companies]
 
 st.sidebar.header("Date Range (Optional)")
 start_date = st.sidebar.date_input("Start date", value=None)
@@ -75,12 +75,13 @@ with tab1:
                           start_date=start_date if start_date else None,
                           end_date=end_date if end_date else dynamic_end_date)
         if df is not None and not df.empty:
-            st.write("Data columns for debugging:", df.columns.tolist())  # Debug print to check columns
+            st.write("Data columns for debugging:", df.columns.tolist()) # Debug check
             df = compute_sma(df)
             df = compute_ema(df)
             current = fetch_current_price(ticker)
             close_col = get_close_price_column(df)
-            st.metric(label="Current Price", value=current[close_col] if current and close_col in current else "N/A")
+            current_price = current[close_col] if current and close_col in current else "N/A"
+            st.metric(label="Current Price", value=current_price)
             st.line_chart(df.set_index('trade_date')[[close_col, 'SMA', 'EMA']])
             with st.expander("Show Full Historical Data Table (Expandable)"):
                 st.dataframe(df, use_container_width=True)
@@ -88,13 +89,12 @@ with tab1:
         else:
             st.warning("No price data for selected company.")
 
-
 with tab2:
     st.subheader("Abrupt Price Changes Detection")
     threshold = st.slider("Set threshold for abrupt change (%)", 1, 20, value=5) / 100.0
     for ticker in selected_companies:
         info = fetch_company_info(ticker)
-        if info is None:
+        if not info:
             st.warning(f"No info found for ticker {ticker}")
             continue
         company_name_display = info.get('company_name', ticker)
@@ -112,7 +112,7 @@ with tab3:
     window = st.slider("SMA/Volatility Window (days)", 5, 50, value=20)
     for ticker in selected_companies:
         info = fetch_company_info(ticker)
-        if info is None:
+        if not info:
             st.warning(f"No info found for ticker {ticker}")
             continue
         company_name_display = info.get('company_name', ticker)
@@ -130,11 +130,14 @@ with tab4:
     st.subheader("Compare Multiple Companies & Correlation Analysis")
     if len(selected_tickers) > 1:
         merged = compare_companies(selected_tickers, start_date if start_date else None, end_date if end_date else dynamic_end_date)
-        st.line_chart(merged)
-        corr = correlation_analysis(selected_tickers)
-        st.write("Correlation Matrix of Selected Companies:")
-        st.dataframe(corr)
-        plot_correlation(corr)
+        if not merged.empty:
+            st.line_chart(merged)
+            corr = correlation_analysis(selected_tickers)
+            st.write("Correlation Matrix of Selected Companies:")
+            st.dataframe(corr)
+            plot_correlation(corr)
+        else:
+            st.warning("No overlapping data found for comparison.")
     else:
         st.info("Select two or more companies to compare/correlate.")
 
@@ -142,7 +145,7 @@ with tab5:
     st.subheader("Export Data & Company Info")
     for ticker in selected_companies:
         info = fetch_company_info(ticker)
-        if info is None:
+        if not info:
             st.warning(f"No info found for ticker {ticker}")
             continue
         st.markdown(f"### {info.get('company_name', ticker)} ({ticker}) Info")
@@ -199,6 +202,3 @@ Developed By &nbsp;&nbsp : &nbsp;&nbsp <b><a href="https://www.linkedin.com/in/j
 """, unsafe_allow_html=True)
 
 st.sidebar.info("Made with ❤️ using Streamlit, AlphaVantage, and yfinance APIs.")
-
-
-
