@@ -1,12 +1,12 @@
 import streamlit as st
 import pandas as pd
-from analysis import (
+from calculations import (
     fetch_prices, fetch_current_price, fetch_company_info,
     compute_sma, compute_ema, detect_abrupt_changes,
     volatility_and_risk, correlation_analysis,
-    compare_companies, plot_correlation,
-    best_time_to_invest, plot_prices, get_close_price_column
+    compare_companies, best_time_to_invest, get_close_price_column
 )
+from plotting import plot_prices, plot_correlation
 from data_fetcher import get_company_list, run_fetching
 from datetime import datetime
 
@@ -89,16 +89,12 @@ with tab1:
             start_date=start_date if start_date else None,
             end_date=end_date if end_date else dynamic_end_date
         )
-
         if df is not None and not df.empty:
             st.write("Data columns for debugging:", df.columns.tolist())
             close_col = get_close_price_column(df)
-            # Ensure numeric and filled NaNs for rolling calculations
             df[close_col] = pd.to_numeric(df[close_col], errors='coerce').fillna(method='ffill')
-
             df = compute_sma(df)
             df = compute_ema(df)
-
             current = fetch_current_price(ticker)
             try:
                 raw_price = current.get(close_col) if current else None
@@ -107,16 +103,13 @@ with tab1:
                     current_price = "N/A"
             except Exception:
                 current_price = "N/A"
-
             st.metric(label="Current Price", value=current_price)
-
             df.set_index('trade_date', inplace=True)
             chart_data = df[[close_col, 'SMA', 'EMA']].dropna()
             if not chart_data.empty:
                 st.line_chart(chart_data)
             else:
                 st.warning("Not enough data to render chart.")
-            
             with st.expander("Show Full Historical Data Table (Expandable)"):
                 st.dataframe(df.reset_index(), use_container_width=True)
             st.markdown("---")
@@ -186,11 +179,8 @@ with tab4:
             end_date=end_date if end_date else dynamic_end_date
         )
         if not merged.empty:
-            # Convert all columns to numeric, coercing errors to NaN
             merged = merged.apply(pd.to_numeric, errors='coerce')
-            # Drop any rows containing NaN values after conversion
             merged = merged.dropna()
-    
             st.line_chart(merged)
             corr = correlation_analysis(selected_companies)
             st.write("Correlation Matrix of Selected Companies:")
