@@ -2,6 +2,25 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from db_config import create_connection
 
+def flatten_close_price(df):
+    """
+    Flatten nested close price object to numeric column 'close_price'.
+    Adjust keys as per your data schema.
+    """
+    if df is None or df.empty:
+        return df
+    close_price_field = None
+    for col in df.columns:
+        if col.lower().startswith('close'):
+            close_price_field = col
+            break
+    if close_price_field:
+        df['close_price'] = df[close_price_field].apply(lambda x: x.get('value') if isinstance(x, dict) else None)
+        df = df[df['close_price'].notnull()]
+    else:
+        raise KeyError("No close price field found for flattening")
+    return df
+
 def fetch_prices(ticker_symbol, start_date=None, end_date=None):
     """
     Fetch historical prices for a ticker from the database and flatten nested price fields.
@@ -28,27 +47,7 @@ def fetch_prices(ticker_symbol, start_date=None, end_date=None):
         df['trade_date'] = pd.to_datetime(df['trade_date'], errors='coerce')
         df = df[df['trade_date'].notnull()]
         df = df.sort_values('trade_date').reset_index(drop=True)
-        # Flatten nested close price object to simple numeric column
-        # Here you need to specify the actual nested field name and the key to extract
-        # For example, field = 'Close_RELIANCE', key = 'value' or whatever your schema uses
-        # Since your data shows Close_RELIANCE is an object, extract numeric close price like below:
-
-        # Identify the close price nested field dynamically if possible, else hardcode per ticker
-        close_price_field = None
-        for col in df.columns:
-            if col.lower().startswith('close'):
-                close_price_field = col
-                break
-
-        if close_price_field:
-            # Attempt to extract numeric value inside the nested object
-            # Assuming the value key inside the nested object is 'value'; adjust if different
-            df['close_price'] = df[close_price_field].apply(lambda x: x.get('value') if isinstance(x, dict) else None)
-            # Drop rows where close_price extraction failed
-            df = df[df['close_price'].notnull()]
-        else:
-            raise KeyError("No close price field found to extract value.")
-
+        df = flatten_close_price(df)
     return df if not df.empty else None
 
 def fetch_current_price(ticker_symbol):
@@ -139,10 +138,11 @@ def correlation_analysis(ticker_symbols):
         df = fetch_prices(ticker)
         if df is None or df.empty:
             continue
+        # Flatten nested price object for each ticker's dataframe for correlation
+        df = flatten_close_price(df)
         company_info = fetch_company_info(ticker)
         name = company_info.get('company_name', ticker) if company_info else ticker
-        close_col = get_close_price_column(df)
-        df = df.rename(columns={close_col: name})
+        df = df.rename(columns={'close_price': name})
         dfs.append(df.set_index('trade_date')[name])
         company_names.append(name)
     if not dfs:
