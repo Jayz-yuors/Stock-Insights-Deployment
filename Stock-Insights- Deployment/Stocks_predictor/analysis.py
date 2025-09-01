@@ -46,7 +46,7 @@ def fetch_company_info(ticker_symbol):
     Fetch company information for a ticker from the database.
     """
     db = create_connection()
-    if not db:
+    if db is None :
         raise ConnectionError("Could not connect to database.")
     collection = db['companies']
     doc = collection.find_one({'ticker_symbol': ticker_symbol})
