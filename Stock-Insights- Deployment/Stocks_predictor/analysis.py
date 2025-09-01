@@ -4,7 +4,7 @@ from db_config import create_connection
 
 def fetch_prices(ticker_symbol, start_date=None, end_date=None):
     """
-    Fetch historical prices for a ticker from the database.
+    Fetch historical prices for a ticker from the database and flatten nested price fields.
     """
     db = create_connection()
     if db is None:
@@ -21,12 +21,34 @@ def fetch_prices(ticker_symbol, start_date=None, end_date=None):
         query['trade_date'] = {'$gte': start_date}
     elif end_date:
         query['trade_date'] = {'$lte': end_date}
+
     cursor = collection.find(query).sort('trade_date', 1)
     df = pd.DataFrame(list(cursor))
     if not df.empty:
         df['trade_date'] = pd.to_datetime(df['trade_date'], errors='coerce')
         df = df[df['trade_date'].notnull()]
         df = df.sort_values('trade_date').reset_index(drop=True)
+        # Flatten nested close price object to simple numeric column
+        # Here you need to specify the actual nested field name and the key to extract
+        # For example, field = 'Close_RELIANCE', key = 'value' or whatever your schema uses
+        # Since your data shows Close_RELIANCE is an object, extract numeric close price like below:
+
+        # Identify the close price nested field dynamically if possible, else hardcode per ticker
+        close_price_field = None
+        for col in df.columns:
+            if col.lower().startswith('close'):
+                close_price_field = col
+                break
+
+        if close_price_field:
+            # Attempt to extract numeric value inside the nested object
+            # Assuming the value key inside the nested object is 'value'; adjust if different
+            df['close_price'] = df[close_price_field].apply(lambda x: x.get('value') if isinstance(x, dict) else None)
+            # Drop rows where close_price extraction failed
+            df = df[df['close_price'].notnull()]
+        else:
+            raise KeyError("No close price field found to extract value.")
+
     return df if not df.empty else None
 
 def fetch_current_price(ticker_symbol):
@@ -39,7 +61,7 @@ def fetch_current_price(ticker_symbol):
     collection = db['stock_prices']
     cursor = collection.find({'ticker_symbol': ticker_symbol}).sort('trade_date', -1).limit(1)
     docs = list(cursor)
-    return docs[0] if docs else None  # Return single doc or None
+    return docs[0] if docs else None
 
 def fetch_company_info(ticker_symbol):
     """
@@ -54,8 +76,11 @@ def fetch_company_info(ticker_symbol):
 
 def get_close_price_column(df):
     """
-    Get the column name corresponding to close price.
+    Return the name of the column used for close price analysis.
+    After flattening, this should be 'close_price'.
     """
+    if 'close_price' in df.columns:
+        return 'close_price'
     candidates = ['close_price', 'Close', 'close', 'Adj Close', 'adj_close']
     for col in df.columns:
         if 'close' in col.lower():
