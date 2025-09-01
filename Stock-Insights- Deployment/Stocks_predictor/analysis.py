@@ -7,7 +7,7 @@ def fetch_prices(ticker_symbol, start_date=None, end_date=None):
     Fetch historical prices for a ticker from the database.
     """
     db = create_connection()
-    if not db:
+    if db is None :
         raise ConnectionError("Could not connect to database.")
     collection = db['stock_prices']
     query = {'ticker_symbol': ticker_symbol}
@@ -34,7 +34,7 @@ def fetch_current_price(ticker_symbol):
     Fetch the most recent price for a ticker from the database.
     """
     db = create_connection()
-    if not db:
+    if db is None :
         raise ConnectionError("Could not connect to database.")
     collection = db['stock_prices']
     cursor = collection.find({'ticker_symbol': ticker_symbol}).sort('trade_date', -1).limit(1)
